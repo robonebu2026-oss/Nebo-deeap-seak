@@ -1,0 +1,1841 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nebo</title>
+<style>
+/* ============================================================
+   RESET E BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+html, body {
+  height: 100%;
+  margin: 0;
+  background: #000;
+  color: #eee;
+  font-family: system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ============================================================
+   PALCO DO NEBO (onde fica o SVG)
+   ============================================================ */
+#palco {
+  position: relative;
+  width: min(80vw, 55vh);
+  height: min(80vw, 55vh);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Halo de humor - círculo suave atrás do Nebo */
+#halo {
+  position: absolute;
+  inset: -10%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(168,184,232,0) 0%, rgba(168,184,232,0) 70%);
+  transition: background 0.6s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* SVG do rosto */
+#nebo {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  overflow: visible;
+}
+
+/* ============================================================
+   HALOS DE HUMOR (cores do fundo atrás do Nebo)
+   ============================================================ */
+body[data-m="neutral"]    #halo { background: radial-gradient(circle, rgba(60,70,120,.25) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="happy"]      #halo { background: radial-gradient(circle, rgba(255,220,120,.35) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="sad"]        #halo { background: radial-gradient(circle, rgba(120,140,220,.3) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="cry"]        #halo { background: radial-gradient(circle, rgba(120,160,255,.4) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="angry"]      #halo { background: radial-gradient(circle, rgba(255,90,90,.35) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="carinho"]    #halo { background: radial-gradient(circle, rgba(255,150,190,.35) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="tickle"]     #halo { background: radial-gradient(circle, rgba(255,220,120,.4) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="sleepy"]     #halo { background: radial-gradient(circle, rgba(60,60,120,.35) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="sick"]       #halo { background: radial-gradient(circle, rgba(160,220,180,.3) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="bored"]      #halo { background: radial-gradient(circle, rgba(80,80,110,.3) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="curious"]    #halo { background: radial-gradient(circle, rgba(140,180,255,.3) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="scared"]     #halo { background: radial-gradient(circle, rgba(200,200,255,.35) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="surprised"]  #halo { background: radial-gradient(circle, rgba(255,255,255,.35) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="dizzy"]      #halo { background: radial-gradient(circle, rgba(200,150,220,.3) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="dance"]      #halo { background: radial-gradient(circle, rgba(255,180,220,.4) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="atencao"]    #halo { background: radial-gradient(circle, rgba(140,200,255,.35) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="aflicao"]    #halo { background: radial-gradient(circle, rgba(150,150,220,.3) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="afeto"]      #halo { background: radial-gradient(circle, rgba(255,150,190,.4) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="descanso"]   #halo { background: radial-gradient(circle, rgba(180,200,240,.25) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="desconfiado"] #halo { background: radial-gradient(circle, rgba(120,120,140,.3) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="preocupado"] #halo { background: radial-gradient(circle, rgba(140,140,200,.3) 0%, rgba(0,0,0,0) 70%); }
+
+/* ============================================================
+   OLHOS E BOCA (SVG)
+   ============================================================ */
+.eye-shape {
+  fill: #a8b8e8;               /* azul padrão */
+  transition: fill 0.4s ease;
+}
+
+.shine {
+  fill: #ffffff;
+  opacity: 0.75;
+}
+
+.mouth {
+  fill: none;
+  stroke: #a8b8e8;           /* mesma cor dos olhos */
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 0.4s ease;
+}
+
+/* ============================================================
+   ANIMAÇÕES CSS (usadas pelo motor de expressões)
+   ============================================================ */
+
+/* Rotação (usada no "enjoado/tonta" com espirais) */
+@keyframes girar {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Pulsar (carinho, afeto) */
+@keyframes pulsar {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.06); }
+}
+
+/* Tremer (medo, irritado) */
+@keyframes tremer {
+  0%, 100% { transform: translate(0, 0); }
+  25%      { transform: translate(-2px, -1px); }
+  75%      { transform: translate(2px, 1px); }
+}
+
+/* Respirar (descansando, sono) */
+@keyframes respirar {
+  0%, 100% { transform: scaleY(1); }
+  50%      { transform: scaleY(0.94); }
+}
+
+/* Pular (surpresa) */
+@keyframes pular {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.15); }
+  60%  { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+/* Coração subindo (carinho) */
+@keyframes coracaoSobe {
+  0%   { transform: translateY(0) scale(0.6); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { transform: translateY(-80px) scale(1.1); opacity: 0; }
+}
+
+/* Zzz subindo (dormindo) */
+@keyframes zzzSobe {
+  0%   { transform: translate(0, 0) scale(0.7); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { transform: translate(20px, -60px) scale(1.3); opacity: 0; }
+}
+
+/* Gotinha caindo (triste variação) */
+@keyframes gotaCai {
+  0%   { transform: translateY(0); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { transform: translateY(50px); opacity: 0; }
+}
+
+/* Compressa pulsando (doente) */
+@keyframes compressaPulsa {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+
+/* ============================================================
+   BOLHA DE FALA
+   ============================================================ */
+#bubble {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 18px);
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 17px;
+  opacity: 0;
+  transition: opacity 0.4s;
+  pointer-events: none;
+  padding: 0 20px;
+  z-index: 5;
+}
+
+#bubble.on { opacity: 0.9; }
+
+/* ============================================================
+   BARRA DE BOTÕES (parte inferior)
+   ============================================================ */
+#bar {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 0 10px;
+  z-index: 5;
+}
+
+#bar button {
+  background: #ffffff14;
+  color: #fff;
+  border: 0;
+  border-radius: 22px;
+  padding: 10px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#bar button:active { background: #ffffff28; }
+
+/* ============================================================
+   PAINEL DE ESTADO
+   ============================================================ */
+#estado {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: #1b1824f2;
+  border-radius: 20px;
+  padding: 18px 22px;
+  width: min(80vw, 320px);
+  display: none;
+  z-index: 10;
+}
+
+#estado.on { display: block; }
+
+.st {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  font-size: 15px;
+}
+
+.st i {
+  flex: 1;
+  height: 10px;
+  background: #333;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.st i b {
+  display: block;
+  height: 100%;
+  background: #f4a6c6;
+  border-radius: 6px;
+  transition: width 0.4s;
+}
+
+/* ============================================================
+   PAINEL GENÉRICO (comida, cuidar, brincar, mundo)
+   ============================================================ */
+#panel {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: #1b1824f2;
+  border-radius: 20px;
+  padding: 16px 20px;
+  width: min(84vw, 340px);
+  display: none;
+  z-index: 10;
+  max-height: 80vh;
+  overflow: auto;
+}
+
+#panel.on { display: block; }
+#panel h3 { margin: 0 0 10px; font-size: 18px; }
+
+#panel button {
+  display: block;
+  width: 100%;
+  margin: 8px 0;
+  background: #ffffff1a;
+  color: #fff;
+  border: 0;
+  border-radius: 14px;
+  padding: 12px;
+  font-size: 16px;
+  cursor: pointer;
+  text-align: left;
+}
+
+#panel button:active { background: #ffffff2e; }
+
+/* ============================================================
+   CORAÇÕES QUE SOBEM (feedback visual no carinho)
+   ============================================================ */
+.heart {
+  position: fixed;
+  font-size: 22px;
+  pointer-events: none;
+  animation: coracaoSobe 1.2s forwards;
+  z-index: 4;
+}
+</style>
+</head>
+<body data-m="neutral">
+
+<!-- ============================================================
+     PALCO DO NEBO
+     ============================================================ -->
+<div id="screen">
+  <div id="palco">
+    <div id="halo"></div>
+
+    <!-- SVG do rosto do Nebo -->
+    <svg id="nebo" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+      <!-- Olho esquerdo -->
+      <g id="olho-e" transform="translate(140, 180)">
+        <path id="olho-e-shape" class="eye-shape" d=""/>
+        <ellipse id="olho-e-shine" class="shine" cx="-8" cy="-15" rx="7" ry="11"/>
+      </g>
+
+      <!-- Olho direito -->
+      <g id="olho-d" transform="translate(260, 180)">
+        <path id="olho-d-shape" class="eye-shape" d=""/>
+        <ellipse id="olho-d-shine" class="shine" cx="-8" cy="-15" rx="7" ry="11"/>
+      </g>
+
+      <!-- Boca -->
+      <g id="boca-g" transform="translate(200, 290)">
+        <path id="boca" class="mouth" d=""/>
+      </g>
+
+      <!-- Detalhes extras (gota, zzz, coração, compressa, faísca) -->
+      <g id="detalhe" transform="translate(200, 180)"></g>
+    </svg>
+  </div>
+</div>
+
+<!-- ============================================================
+     ELEMENTOS DE UI
+     ============================================================ -->
+<div id="bubble"></div>
+<div id="estado"></div>
+<div id="panel"></div>
+
+<div id="bar">
+  <button id="bXarope" style="display:none">🍯 Xarope</button>
+  <button id="bEstado">💗 Estado</button>
+  <button id="bCuidar">🧸 Cuidar</button>
+  <button id="bBrincar">🎮 Brincar</button>
+  <button id="bMundo">✨ Mundo</button>
+</div>
+
+<!-- ============================================================
+     SCRIPT (Partes 2 e 3 virão aqui)
+     ============================================================ -->
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nebo</title>
+<style>
+/* ============================================================
+   RESET E BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+html, body {
+  height: 100%;
+  margin: 0;
+  background: #000;
+  color: #eee;
+  font-family: system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ============================================================
+   PALCO DO NEBO (onde fica o SVG)
+   ============================================================ */
+#palco {
+  position: relative;
+  width: min(80vw, 55vh);
+  height: min(80vw, 55vh);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Halo de humor - círculo suave atrás do Nebo */
+#halo {
+  position: absolute;
+  inset: -10%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(168,184,232,0) 0%, rgba(168,184,232,0) 70%);
+  transition: background 0.6s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* SVG do rosto */
+#nebo {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  overflow: visible;
+}
+
+/* ============================================================
+   HALOS DE HUMOR (cores do fundo atrás do Nebo)
+   ============================================================ */
+body[data-m="neutral"]    #halo { background: radial-gradient(circle, rgba(60,70,120,.25) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="happy"]      #halo { background: radial-gradient(circle, rgba(255,220,120,.35) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="sad"]        #halo { background: radial-gradient(circle, rgba(120,140,220,.3) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="cry"]        #halo { background: radial-gradient(circle, rgba(120,160,255,.4) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="angry"]      #halo { background: radial-gradient(circle, rgba(255,90,90,.35) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="carinho"]    #halo { background: radial-gradient(circle, rgba(255,150,190,.35) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="tickle"]     #halo { background: radial-gradient(circle, rgba(255,220,120,.4) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="sleepy"]     #halo { background: radial-gradient(circle, rgba(60,60,120,.35) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="sick"]       #halo { background: radial-gradient(circle, rgba(160,220,180,.3) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="bored"]      #halo { background: radial-gradient(circle, rgba(80,80,110,.3) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="curious"]    #halo { background: radial-gradient(circle, rgba(140,180,255,.3) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="scared"]     #halo { background: radial-gradient(circle, rgba(200,200,255,.35) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="surprised"]  #halo { background: radial-gradient(circle, rgba(255,255,255,.35) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="dizzy"]      #halo { background: radial-gradient(circle, rgba(200,150,220,.3) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="dance"]      #halo { background: radial-gradient(circle, rgba(255,180,220,.4) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="atencao"]    #halo { background: radial-gradient(circle, rgba(140,200,255,.35) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="aflicao"]    #halo { background: radial-gradient(circle, rgba(150,150,220,.3) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="afeto"]      #halo { background: radial-gradient(circle, rgba(255,150,190,.4) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="descanso"]   #halo { background: radial-gradient(circle, rgba(180,200,240,.25) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="desconfiado"] #halo { background: radial-gradient(circle, rgba(120,120,140,.3) 0%, rgba(0,0,0,0) 70%); }
+body[data-m="preocupado"] #halo { background: radial-gradient(circle, rgba(140,140,200,.3) 0%, rgba(0,0,0,0) 70%); }
+
+/* ============================================================
+   OLHOS E BOCA (SVG)
+   ============================================================ */
+.eye-shape {
+  fill: #a8b8e8;               /* azul padrão */
+  transition: fill 0.4s ease;
+}
+
+.shine {
+  fill: #ffffff;
+  opacity: 0.75;
+}
+
+.mouth {
+  fill: none;
+  stroke: #a8b8e8;           /* mesma cor dos olhos */
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 0.4s ease;
+}
+
+/* ============================================================
+   ANIMAÇÕES CSS (usadas pelo motor de expressões)
+   ============================================================ */
+
+/* Rotação (usada no "enjoado/tonta" com espirais) */
+@keyframes girar {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Pulsar (carinho, afeto) */
+@keyframes pulsar {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.06); }
+}
+
+/* Tremer (medo, irritado) */
+@keyframes tremer {
+  0%, 100% { transform: translate(0, 0); }
+  25%      { transform: translate(-2px, -1px); }
+  75%      { transform: translate(2px, 1px); }
+}
+
+/* Respirar (descansando, sono) */
+@keyframes respirar {
+  0%, 100% { transform: scaleY(1); }
+  50%      { transform: scaleY(0.94); }
+}
+
+/* Pular (surpresa) */
+@keyframes pular {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.15); }
+  60%  { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+/* Coração subindo (carinho) */
+@keyframes coracaoSobe {
+  0%   { transform: translateY(0) scale(0.6); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { transform: translateY(-80px) scale(1.1); opacity: 0; }
+}
+
+/* Zzz subindo (dormindo) */
+@keyframes zzzSobe {
+  0%   { transform: translate(0, 0) scale(0.7); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { transform: translate(20px, -60px) scale(1.3); opacity: 0; }
+}
+
+/* Gotinha caindo (triste variação) */
+@keyframes gotaCai {
+  0%   { transform: translateY(0); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { transform: translateY(50px); opacity: 0; }
+}
+
+/* Compressa pulsando (doente) */
+@keyframes compressaPulsa {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+
+/* ============================================================
+   BOLHA DE FALA
+   ============================================================ */
+#bubble {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 18px);
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 17px;
+  opacity: 0;
+  transition: opacity 0.4s;
+  pointer-events: none;
+  padding: 0 20px;
+  z-index: 5;
+}
+
+#bubble.on { opacity: 0.9; }
+
+/* ============================================================
+   BARRA DE BOTÕES (parte inferior)
+   ============================================================ */
+#bar {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 0 10px;
+  z-index: 5;
+}
+
+#bar button {
+  background: #ffffff14;
+  color: #fff;
+  border: 0;
+  border-radius: 22px;
+  padding: 10px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#bar button:active { background: #ffffff28; }
+
+/* ============================================================
+   PAINEL DE ESTADO
+   ============================================================ */
+#estado {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: #1b1824f2;
+  border-radius: 20px;
+  padding: 18px 22px;
+  width: min(80vw, 320px);
+  display: none;
+  z-index: 10;
+}
+
+#estado.on { display: block; }
+
+.st {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+  font-size: 15px;
+}
+
+.st i {
+  flex: 1;
+  height: 10px;
+  background: #333;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.st i b {
+  display: block;
+  height: 100%;
+  background: #f4a6c6;
+  border-radius: 6px;
+  transition: width 0.4s;
+}
+
+/* ============================================================
+   PAINEL GENÉRICO (comida, cuidar, brincar, mundo)
+   ============================================================ */
+#panel {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: #1b1824f2;
+  border-radius: 20px;
+  padding: 16px 20px;
+  width: min(84vw, 340px);
+  display: none;
+  z-index: 10;
+  max-height: 80vh;
+  overflow: auto;
+}
+
+#panel.on { display: block; }
+#panel h3 { margin: 0 0 10px; font-size: 18px; }
+
+#panel button {
+  display: block;
+  width: 100%;
+  margin: 8px 0;
+  background: #ffffff1a;
+  color: #fff;
+  border: 0;
+  border-radius: 14px;
+  padding: 12px;
+  font-size: 16px;
+  cursor: pointer;
+  text-align: left;
+}
+
+#panel button:active { background: #ffffff2e; }
+
+/* ============================================================
+   CORAÇÕES QUE SOBEM (feedback visual no carinho)
+   ============================================================ */
+.heart {
+  position: fixed;
+  font-size: 22px;
+  pointer-events: none;
+  animation: coracaoSobe 1.2s forwards;
+  z-index: 4;
+}
+</style>
+</head>
+<body data-m="neutral">
+
+<!-- ============================================================
+     PALCO DO NEBO
+     ============================================================ -->
+<div id="screen">
+  <div id="palco">
+    <div id="halo"></div>
+
+    <!-- SVG do rosto do Nebo -->
+    <svg id="nebo" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+      <!-- Olho esquerdo -->
+      <g id="olho-e" transform="translate(140, 180)">
+        <path id="olho-e-shape" class="eye-shape" d=""/>
+        <ellipse id="olho-e-shine" class="shine" cx="-8" cy="-15" rx="7" ry="11"/>
+      </g>
+
+      <!-- Olho direito -->
+      <g id="olho-d" transform="translate(260, 180)">
+        <path id="olho-d-shape" class="eye-shape" d=""/>
+        <ellipse id="olho-d-shine" class="shine" cx="-8" cy="-15" rx="7" ry="11"/>
+      </g>
+
+      <!-- Boca -->
+      <g id="boca-g" transform="translate(200, 290)">
+        <path id="boca" class="mouth" d=""/>
+      </g>
+
+      <!-- Detalhes extras (gota, zzz, coração, compressa, faísca) -->
+      <g id="detalhe" transform="translate(200, 180)"></g>
+    </svg>
+  </div>
+</div>
+
+<!-- ============================================================
+     ELEMENTOS DE UI
+     ============================================================ -->
+<div id="bubble"></div>
+<div id="estado"></div>
+<div id="panel"></div>
+
+<div id="bar">
+  <button id="bXarope" style="display:none">🍯 Xarope</button>
+  <button id="bEstado">💗 Estado</button>
+  <button id="bCuidar">🧸 Cuidar</button>
+  <button id="bBrincar">🎮 Brincar</button>
+  <button id="bMundo">✨ Mundo</button>
+</div>
+
+<!-- ============================================================
+     SCRIPT (Partes 2 e 3 virão aqui)
+     ============================================================ -->
+<script>
+/* ============================================================
+   PARTE 2 — MOTOR DE EXPRESSÕES DO NEBO
+   ============================================================
+   Aqui ficam:
+   - As peças SVG (formatos de olho, boca, detalhes)
+   - A configuração das expressões (qual peça usar em cada humor)
+   - O motor que troca o rosto quando o humor muda
+   - As animações (piscar, olhar, tremer, girar, etc.)
+   ============================================================ */
+
+// Atalho pra pegar elementos
+const $ = id => document.getElementById(id);
+const body = document.body;
+
+// Referências aos elementos do SVG
+const olhoEShape = $('olho-e-shape');
+const olhoDShape = $('olho-d-shape');
+const olhoEBrilho = $('olho-e-shine');
+const olhoDBrilho = $('olho-d-shine');
+const bocaEl = $('boca');
+const detalheEl = $('detalhe');
+const olhoE = $('olho-e');
+const olhoD = $('olho-d');
+
+/* ============================================================
+   1) PEÇAS DOS OLHOS
+   ------------------------------------------------------------
+   Cada chave é um formato de olho. O valor é o atributo "d"
+   do <path>. Todos foram desenhados em torno de (0,0), então
+   podem ser posicionados via translate no <g> pai.
+   ============================================================ */
+const OLHOS = {
+  // Olho oval vertical (padrão do neutro)
+  ovalV: "M 0,-70 C 30,-70 45,-45 45,0 C 45,45 30,70 0,70 C -30,70 -45,45 -45,0 C -45,-45 -30,-70 0,-70 Z",
+
+  // Olho oval horizontal (deitado)
+  ovalH: "M -55,0 C -55,-25 -25,-40 0,-40 C 25,-40 55,-25 55,0 C 55,25 25,40 0,40 C -25,40 -55,25 -55,0 Z",
+
+  // Meia-lua virada pra cima (feliz / carinho)
+  meiaLuaCima: "M -55,0 C -55,-40 -25,-55 0,-55 C 25,-55 55,-40 55,0 C 55,-30 25,-40 0,-40 C -25,-40 -55,-30 -55,0 Z",
+
+  // Meia-lua virada pra baixo (aflição, outras)
+  meiaLuaBaixo: "M -55,0 C -55,40 -25,55 0,55 C 25,55 55,40 55,0 C 55,30 25,40 0,40 C -25,40 -55,30 -55,0 Z",
+
+  // Olho caído (triste, doente) — peso pra baixo
+  caido: "M -50,10 C -30,-20 30,-20 50,15 C 30,-5 -30,-5 -50,10 Z",
+
+  // Olho achatado (dormindo, descansando, irritado)
+  achatado: "M -55,0 C -30,-18 30,-18 55,0 C 30,10 -30,10 -55,0 Z",
+
+  // Espiral (enjoado / tonta)
+  // A espiral é desenhada como path e girada via CSS
+  espiral: "M 0,-30 A 30,30 0 1 1 -0.1,-30 M 0,-18 A 18,18 0 1 0 -0.1,-18 M 0,-7 A 7,7 0 1 1 -0.1,-7",
+
+  // Linha fina (sono profundo)
+  linhaFina: "M -55,0 C -25,-4 25,-4 55,0 C 25,4 -25,4 -55,0 Z"
+};
+
+/* ============================================================
+   2) PEÇAS DA BOCA
+   ------------------------------------------------------------
+   Mesmo esquema: cada chave é um formato, valor é o "d".
+   Boca do Nebo é pequena e estilizada.
+   ============================================================ */
+const BOCAS = {
+  // Boca neutra — risco reto
+  reta: "M -18,0 L 18,0",
+
+  // Boquinha triste (caret pra baixo = "^" invertido)
+  caret: "M -14,-6 Q 0,10 14,-6",
+
+  // Boquinha feliz (caret pra cima)
+  sorriso: "M -20,4 Q 0,-14 20,4",
+
+  // Boquinha "w" (afeto, carinho, descanso)
+  w: "M -24,2 Q -12,-10 0,2 Q 12,14 24,2",
+
+  // Boquinha ondulada (aflição)
+  onda: "M -26,0 Q -13,-8 0,0 Q 13,8 26,0",
+
+  // Boquinha "o" pequena (surpresa)
+  quadrado: "M -10,-8 L 10,-8 L 10,8 L -10,8 Z"
+};
+
+/* ============================================================
+   3) DETALHES EXTRAS
+   ------------------------------------------------------------
+   Pequenos SVGs que aparecem em cima/ao lado do rosto em
+   certas expressões (gota, zzz, coração, compressa, faísca).
+   ============================================================ */
+const DETALHES = {
+  gota: `<path d="M 0,0 C -4,8 -6,14 0,18 C 6,14 4,8 0,0 Z" fill="#8fd3ff"/>`,
+
+  risquinhos: `<g stroke="#a8b8e8" stroke-width="2" stroke-linecap="round" fill="none">
+    <line x1="-70" y1="0" x2="-82" y2="6"/>
+    <line x1="-68" y1="10" x2="-80" y2="16"/>
+    <line x1="70" y1="0" x2="82" y2="6"/>
+    <line x1="68" y1="10" x2="80" y2="16"/>
+  </g>`,
+
+  zzz: `<g fill="#a8b8e8" font-family="sans-serif" font-weight="bold">
+    <text x="50" y="-40" font-size="16">z</text>
+    <text x="70" y="-60" font-size="20">z</text>
+    <text x="95" y="-85" font-size="24">z</text>
+  </g>`,
+
+  compressa: `<g>
+    <rect x="-45" y="-95" width="90" height="26" rx="8" fill="#dde8ff" opacity="0.9"/>
+    <line x1="-30" y1="-82" x2="30" y2="-82" stroke="#8b9ee0" stroke-width="2" opacity="0.6"/>
+  </g>`,
+
+  faisca: `<g stroke="#ff7070" stroke-width="3" stroke-linecap="round" transform="translate(70,-60)">
+    <line x1="0" y1="-12" x2="0" y2="-22"/>
+    <line x1="-12" y1="0" x2="-22" y2="0"/>
+    <line x1="12" y1="0" x2="22" y2="0"/>
+    <line x1="-9" y1="9" x2="-16" y2="16"/>
+    <line x1="9" y1="9" x2="16" y2="16"/>
+  </g>`,
+
+  coracao: `<path d="M 0,6 C -6,-4 -20,-4 -20,6 C -20,14 -10,22 0,30 C 10,22 20,14 20,6 C 20,-4 6,-4 0,6 Z" fill="#ff8fb3" transform="translate(0,-90)"/>`
+};
+
+/* ============================================================
+   4) CONFIGURAÇÃO DAS EXPRESSÕES
+   ------------------------------------------------------------
+   Cada expressão tem:
+   - olho: qual peça de OLHOS usar
+   - boca: qual peça de BOCAS usar (ou null = sem boca)
+   - cor:  cor dos olhos e da boca
+   - detalhe: qual detalhe extra mostrar (opcional)
+   - anim: nome da animação (definida em ANIMACOES)
+   ============================================================ */
+const EXPRESSOES = {
+  // --- Básicas ---
+  neutral:    { olho: 'ovalV',       boca: 'reta',     cor: '#a8b8e8', anim: 'piscar' },
+  sleepy:     { olho: 'achatado',    boca: null,       cor: '#7a8ec8', detalhe: 'zzz', anim: 'zzzSobe' },
+  happy:      { olho: 'meiaLuaCima', boca: 'sorriso',  cor: '#a8b8e8', anim: 'piscarRapido' },
+  sad:        { olho: 'caido',       boca: 'caret',    cor: '#9a9ad0', anim: 'tremerLeve' },
+  cry:        { olho: 'caido',       boca: 'caret',    cor: '#8fa8e8', detalhe: 'gota', anim: 'gotaCai' },
+  angry:      { olho: 'achatado',    boca: 'reta',     cor: '#ffb3b3', detalhe: 'faisca', anim: 'tremerFaisca' },
+  curious:    { olho: 'ovalV',       boca: null,       cor: '#a8b8e8', anim: 'olharLados' },
+  surprised:  { olho: 'ovalV',       boca: 'quadrado', cor: '#c8d4ff', anim: 'pular' },
+  scared:     { olho: 'ovalV',       boca: 'reta',     cor: '#e8e4ff', detalhe: 'risquinhos', anim: 'tremer' },
+  dizzy:      { olho: 'espiral',     boca: 'caret',    cor: '#b8a8e8', anim: 'espiralGira' },
+  sick:       { olho: 'caido',       boca: 'caret',    cor: '#cfe8d0', detalhe: 'compressa', anim: 'compressaPulsa' },
+  bored:      { olho: 'achatado',    boca: 'reta',     cor: '#a8b8e8', anim: 'respirar' },
+  dance:      { olho: 'meiaLuaCima', boca: 'sorriso',  cor: '#ffb8cc', anim: 'pulsar' },
+
+  // --- Carinho / afeto ---
+  carinho:    { olho: 'meiaLuaCima', boca: 'w',        cor: '#ffb8cc', detalhe: 'coracao', anim: 'pulsar' },
+  afeto:      { olho: 'meiaLuaCima', boca: 'w',        cor: '#ffb8cc', detalhe: 'risquinhos', anim: 'pulsarDevagar' },
+  tickle:     { olho: 'meiaLuaCima', boca: 'sorriso',  cor: '#ffd8a8', anim: 'piscarRapido' },
+
+  // --- Extras do catálogo ---
+  atencao:    { olho: 'ovalV',       boca: null,       cor: '#a8d8ff', detalhe: 'risquinhos', anim: 'pulso' },
+  aflicao:    { olho: 'meiaLuaCima', boca: 'onda',     cor: '#a0a0d8', anim: 'bocaOndula' },
+  descanso:   { olho: 'achatado',    boca: 'w',        cor: '#b8c8f0', anim: 'respirar' },
+  desconfiado:{ olho: 'ovalV',       boca: 'reta',     cor: '#a8b8e8', anim: 'olharLado' },
+  preocupado: { olho: 'caido',       boca: 'caret',    cor: '#a8b8e8', anim: 'alternarOlhos' }
+};
+
+/* ============================================================
+   5) MOTOR DE EXPRESSÕES
+   ------------------------------------------------------------
+   Troca os olhos, boca, cor, detalhe e animação de uma vez.
+   ============================================================ */
+let expressaoAtual = 'neutral';
+let timerAnima = null;
+
+function pararAnimacao() {
+  if (timerAnima) {
+    clearInterval(timerAnima);
+    clearTimeout(timerAnima);
+    timerAnima = null;
+  }
+  // Reseta transformações e animações CSS
+  [olhoE, olhoD, olhoEShape, olhoDShape, bocaEl].forEach(el => {
+    if (!el) return;
+    el.style.animation = '';
+    el.style.transform = '';
+    el.style.transformOrigin = '';
+  });
+}
+
+function setExpressao(nome) {
+  const e = EXPRESSOES[nome];
+  if (!e) return;
+
+  expressaoAtual = nome;
+  body.dataset.m = nome;
+  pararAnimacao();
+
+  // --- Olhos ---
+  const pathOlho = OLHOS[e.olho] || OLHOS.ovalV;
+  olhoEShape.setAttribute('d', pathOlho);
+  olhoDShape.setAttribute('d', pathOlho);
+  olhoEShape.style.fill = e.cor;
+  olhoDShape.style.fill = e.cor;
+
+  // --- Boca ---
+  if (e.boca && BOCAS[e.boca]) {
+    bocaEl.setAttribute('d', BOCAS[e.boca]);
+    bocaEl.style.stroke = e.cor;
+    bocaEl.style.display = '';
+  } else {
+    bocaEl.style.display = 'none';
+  }
+
+  // --- Detalhe extra ---
+  detalheEl.innerHTML = e.detalhe ? (DETALHES[e.detalhe] || '') : '';
+
+  // --- Animação ---
+  if (e.anim && ANIMACOES[e.anim]) {
+    ANIMACOES[e.anim]();
+  }
+}
+
+/* ============================================================
+   6) ANIMAÇÕES
+   ------------------------------------------------------------
+   Cada função aqui anima o rosto de um jeito diferente.
+   Algumas usam CSS (via style.animation), outras usam JS
+   (via setInterval).
+   ============================================================ */
+const ANIMACOES = {
+
+  // Piscar normal — a cada 3.5s
+  piscar() {
+    timerAnima = setInterval(() => {
+      olhoE.style.transform = 'scaleY(0.1)';
+      olhoD.style.transform = 'scaleY(0.1)';
+      setTimeout(() => {
+        olhoE.style.transform = '';
+        olhoD.style.transform = '';
+      }, 120);
+    }, 3500);
+  },
+
+  // Piscar rápido — a cada 1.5s (feliz)
+  piscarRapido() {
+    timerAnima = setInterval(() => {
+      olhoE.style.transform = 'scaleY(0.1)';
+      olhoD.style.transform = 'scaleY(0.1)';
+      setTimeout(() => {
+        olhoE.style.transform = '';
+        olhoD.style.transform = '';
+      }, 100);
+    }, 1500);
+  },
+
+  // Olhar pros lados (curioso)
+  olharLados() {
+    let dir = 1;
+    timerAnima = setInterval(() => {
+      const shift = dir * 12;
+      olhoE.style.transform = `translateX(${shift}px)`;
+      olhoD.style.transform = `translateX(${shift}px)`;
+      dir *= -1;
+    }, 1400);
+  },
+
+  // Olhar de lado fixo (desconfiado) — fica um tempo, volta
+  olharLado() {
+    olhoE.style.transform = 'translateX(15px)';
+    olhoD.style.transform = 'translateX(15px)';
+    timerAnima = setTimeout(() => {
+      olhoE.style.transform = '';
+      olhoD.style.transform = '';
+    }, 2500);
+  },
+
+  // Tremer (medo)
+  tremer() {
+    olhoE.style.animation = 'tremer 0.12s infinite';
+    olhoD.style.animation = 'tremer 0.12s infinite';
+  },
+
+  // Tremer leve (triste)
+  tremerLeve() {
+    olhoE.style.animation = 'tremer 0.5s infinite';
+    olhoD.style.animation = 'tremer 0.5s infinite';
+  },
+
+  // Tremer + faísca (irritado)
+  tremerFaisca() {
+    olhoE.style.animation = 'tremer 0.18s infinite';
+    olhoD.style.animation = 'tremer 0.18s infinite';
+  },
+
+  // Respirar (descansando, entediado)
+  respirar() {
+    olhoE.style.animation = 'respirar 3s ease-in-out infinite';
+    olhoD.style.animation = 'respirar 3s ease-in-out infinite';
+  },
+
+  // Pulsar (carinho, dance)
+  pulsar() {
+    olhoE.style.animation = 'pulsar 0.9s ease-in-out infinite';
+    olhoD.style.animation = 'pulsar 0.9s ease-in-out infinite';
+  },
+
+  // Pulsar devagar (afeto)
+  pulsarDevagar() {
+    olhoE.style.animation = 'pulsar 1.8s ease-in-out infinite';
+    olhoD.style.animation = 'pulsar 1.8s ease-in-out infinite';
+  },
+
+  // Pulso sutil (atenção)
+  pulso() {
+    olhoE.style.animation = 'pulsar 1.2s ease-in-out infinite';
+    olhoD.style.animation = 'pulsar 1.2s ease-in-out infinite';
+  },
+
+  // Pular (surpresa) — anima uma vez, depois para
+  pular() {
+    olhoE.style.animation = 'pular 0.6s ease-out';
+    olhoD.style.animation = 'pular 0.6s ease-out';
+    setTimeout(() => {
+      olhoE.style.animation = '';
+      olhoD.style.animation = '';
+    }, 700);
+  },
+
+  // Espiral girando (tonta)
+  espiralGira() {
+    olhoEShape.style.transformOrigin = 'center';
+    olhoDShape.style.transformOrigin = 'center';
+    olhoEShape.style.animation = 'girar 1.5s linear infinite';
+    olhoDShape.style.animation = 'girar 1.5s linear infinite';
+  },
+
+  // Compressa pulsando (doente)
+  compressaPulsa() {
+    olhoE.style.animation = 'respirar 2.5s ease-in-out infinite';
+    olhoD.style.animation = 'respirar 2.5s ease-in-out infinite';
+    const comp = detalheEl.querySelector('rect');
+    if (comp) comp.style.animation = 'compressaPulsa 2s ease-in-out infinite';
+  },
+
+  // Gotinha caindo (triste variação)
+  gotaCai() {
+    olhoE.style.animation = 'tremer 0.5s infinite';
+    olhoD.style.animation = 'tremer 0.5s infinite';
+    const gota = detalheEl.querySelector('path');
+    if (gota) {
+      gota.style.transformOrigin = 'top';
+      gota.style.animation = 'gotaCai 2s ease-in infinite';
+    }
+  },
+
+  // Zzz subindo (dormindo)
+  zzzSobe() {
+    const zs = detalheEl.querySelectorAll('text');
+    zs.forEach((z, i) => {
+      z.style.animation = `zzzSobe 2.5s ease-out ${i * 0.4}s infinite`;
+      z.style.transformOrigin = 'center';
+    });
+  },
+
+  // Boca ondulando (aflição)
+  bocaOndula() {
+    bocaEl.style.animation = 'pulsar 1s ease-in-out infinite';
+  },
+
+  // Olhos alternando tamanho (preocupado)
+  alternarOlhos() {
+    let fase = 0;
+    timerAnima = setInterval(() => {
+      fase = 1 - fase;
+      olhoE.style.transform = fase ? 'scale(1.08)' : 'scale(0.96)';
+      olhoD.style.transform = fase ? 'scale(0.96)' : 'scale(1.08)';
+    }, 1200);
+  }
+};
+
+// Inicializa com a expressão neutra
+setExpressao('neutral');
+
+// Exporta pro resto do código (Parte 3) usar
+window.NeboRosto = {
+  setExpressao,
+  OLHOS,
+  BOCAS,
+  DETALHES,
+  EXPRESSOES
+};/* ============================================================
+   PARTE 3 — LÓGICA DO PET
+   ============================================================
+   Aqui ficam:
+   - Stats (energia, fome, saúde, humor)
+   - Personalidade (6 tipos)
+   - Sensores (giroscópio, shake, bateria)
+   - Toques (carinho, cócegas, bater)
+   - Comida (com preferências aprendidas)
+   - Mini-jogos (cesta, borboletas, banho)
+   - Mundo (praça, jardim, eventos)
+   - Saudação inicial
+   - Bugs do código antigo corrigidos ✅
+   ============================================================ */
+
+/* ============================================================
+   1) ESTADO DO PET
+   ------------------------------------------------------------
+   Stats: 0 a 100
+   Persistido em localStorage
+   ============================================================ */
+const clamp = (v, a = 0, b = 100) => Math.max(a, Math.min(b, v));
+
+let S = {
+  energia: 100,
+  fome: 100,
+  saude: 100,
+  humor: 100,
+  sick: 0,        // timestamp de quando fica doente (0 = saudável)
+  bond: 0,        // vínculo com o dono
+  last: Date.now(),
+  pers: null,     // personalidade
+  food: {},       // preferências alimentares aprendidas
+  mem: [],        // memórias (lugares, presentes)
+  places: {},     // lugares visitados
+  greet: null,    // última data que cumprimentou
+  pref: null,     // comida favorita atual
+  dis: null       // comida que detesta
+};
+
+// Carrega do localStorage (com validação — bug antigo corrigido)
+try {
+  const raw = localStorage.getItem('nebo-v1');
+  const saved = raw ? JSON.parse(raw) : null;
+  if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+    S = Object.assign(S, saved);
+  }
+} catch (_) {}
+S.sick = S.sick || 0;
+S.bond = S.bond || 0;
+
+function save() {
+  S.last = Date.now();
+  try {
+    localStorage.setItem('nebo-v1', JSON.stringify(S));
+  } catch (_) {}
+}
+
+/* ============================================================
+   2) PERSONALIDADES
+   ------------------------------------------------------------
+   Cada personalidade modifica como o Nebo reage.
+   ============================================================ */
+const PM = {
+  carinhosa:      { pet: 1.6, thr: 0.6 },
+  curiosa:        { bored: 0.6 },
+  tranquila:      { decay: 0.7, bored: 1.6 },
+  brincalhona:    { play: 1.5, bored: 0.7 },
+  temperamental:  { irr: 2 },
+  reservada:      { pet: 0.6 }
+};
+
+const pm = (k, d = 1) => ((PM[S.pers] || {})[k]) ?? d;
+const thrR = () => pm('thr') * (S.pers === 'reservada' ? Math.max(1, 2.5 - (S.bond || 0) * 0.15) : 1);
+
+/* ============================================================
+   3) DECAIMENTO DE STATS AO LONGO DO TEMPO
+   ============================================================ */
+function decay(min) {
+  S.energia = clamp(S.energia - 0.4 * min * pm('decay'));
+  S.fome = clamp(S.fome - 0.5 * min * pm('decay'));
+  const extra = (S.fome < 30 || S.energia < 30) ? 0.3 : 0;
+  S.humor = clamp(S.humor - (0.3 + extra + (S.sick > Date.now() ? 0.3 : 0)) * min);
+  S.saude = clamp(S.saude + ((S.fome < 20 || S.energia < 20) ? -0.5 : 0.3) * min);
+}
+
+// Tempo offline (com correção — sem estourar valores)
+function offline(min) {
+  min = Math.min(min, 480);
+  decay(min * 0.4);
+  if (min > 240) S.energia = Math.max(S.energia, 60);
+  ['energia', 'fome', 'saude', 'humor'].forEach(k => S[k] = Math.max(S[k], 20));
+}
+
+const awayMin = (Date.now() - S.last) / 60000;
+offline(awayMin);
+S.last = Date.now();
+
+// Loop de decaimento a cada 5s
+setInterval(() => {
+  decay(5 / 60);
+  sickTick();
+  foodTick();
+  joyTick();
+  save();
+  if (['neutral', 'sleepy', 'sad', 'sick', 'bored'].includes(mood)) {
+    set(base(), 0);
+  }
+}, 5000);
+
+/* ============================================================
+   4) HUMOR BASE (o que o Nebo sente "naturalmente")
+   ============================================================ */
+const night = () => {
+  const h = new Date().getHours();
+  return h >= 22 || h < 6;
+};
+
+const base = () => {
+  if (S.sick > Date.now()) return 'sick';
+  if (night() || S.energia < 20) return 'sleepy';
+  if (S.humor < 25 || S.fome < 20) return 'sad';
+  return 'neutral';
+};
+
+/* ============================================================
+   5) SISTEMA DE HUMOR COM PRIORIDADE
+   ------------------------------------------------------------
+   Prioridades: quanto maior, mais "forte" o humor.
+   Um humor forte não é substituído por um fraco até o tempo
+   acabar. (Bug antigo corrigido)
+   ============================================================ */
+const VIB = {
+  carinho: [40, 60, 40, 60, 40],
+  angry:   [220],
+  scared:  [60, 40, 60],
+  dizzy:   [100, 50, 100, 50, 100],
+  cry:     [80, 60, 80],
+  happy:   [25],
+  tickle:  [30, 30, 30, 30, 30]
+};
+
+const vib = p => {
+  try { navigator.vibrate && navigator.vibrate(p); } catch (_) {}
+};
+
+const PR = {
+  neutral: 0, dance: 3, bored: 1, sick: 1, sleepy: 1, sad: 1,
+  happy: 1, curious: 2, carinho: 2, tickle: 2, surprised: 2,
+  scared: 3, angry: 3, dizzy: 3, cry: 3,
+  atencao: 1, aflicao: 1, afeto: 2, descanso: 1, desconfiado: 1, preocupado: 1
+};
+
+let mood = 'neutral';
+let mt = null;          // timer do humor
+let bt = null;          // timer da bolha
+let lastAct = Date.now();
+let stage = 0;
+let until = 0;          // até quando o humor atual fica
+
+function say(t) {
+  const b = $('bubble');
+  b.textContent = t;
+  b.classList.add('on');
+  clearTimeout(bt);
+  bt = setTimeout(() => b.classList.remove('on'), 2600);
+}
+
+function set(m, ms = 2200, t) {
+  // Proteção de prioridade
+  if (ms && Date.now() < until && PR[m] < PR[mood]) return;
+  if (ms) {
+    until = Date.now() + ms;
+    if (VIB[m]) vib(VIB[m]);
+  }
+  clearTimeout(mt);
+  mood = m;
+
+  // Chama o motor de expressões da Parte 2
+  if (window.NeboRosto) window.NeboRosto.setExpressao(m);
+
+  if (t) say(t);
+  if (ms && m !== base()) {
+    mt = setTimeout(() => set(base(), 0), ms);
+  }
+}
+
+set(base(), 0);
+
+/* ============================================================
+   6) SAUDAÇÃO INICIAL (bom dia / boa noite / saudade)
+   ============================================================ */
+(function greeting() {
+  const d = new Date();
+  const h = d.getHours();
+  const k = d.toDateString();
+
+  if (awayMin > (S.pers === 'carinhosa' ? 60 : 180)) {
+    say('Que saudade! 💗');
+  } else if (S.greet !== k && h >= 6 && h < 12) {
+    S.greet = k;
+    say('Bom dia! ☀️');
+  } else if (night()) {
+    say('Boa noite... 😴');
+  }
+  if (!navigator.onLine) say('Sem internet... 📵');
+})();
+
+/* ============================================================
+   7) PISCADA E MOVIMENTO DOS OLHOS
+   ============================================================ */
+function wig() {
+  const eyes = $('olho-e').parentElement;
+  eyes.classList.add('wig');
+  setTimeout(() => eyes.classList.remove('wig'), 1200);
+}
+
+function look(x, y) {
+  const dx = (x / innerWidth - 0.5) * 60;
+  const dy = (y / innerHeight - 0.5) * 34;
+  olhoE.style.transform = `translate(${dx}px, ${dy}px)`;
+  olhoD.style.transform = `translate(${dx}px, ${dy}px)`;
+}
+
+function heart(x, y) {
+  const h = document.createElement('div');
+  h.className = 'heart';
+  h.textContent = '💗';
+  h.style.left = (x - 10) + 'px';
+  h.style.top = (y - 10) + 'px';
+  document.body.appendChild(h);
+  setTimeout(() => h.remove(), 1200);
+}
+
+/* ============================================================
+   8) TÉDIO (o Nebo fica entediado se não interagir)
+   ============================================================ */
+setInterval(() => {
+  const s = (Date.now() - lastAct) / 1000;
+
+  if (s > 40 * pm('bored') && stage < 1) {
+    stage = 1;
+    set('curious', 9000, '👀');
+  }
+  if (s > 60 * pm('bored') && stage < 2) {
+    stage = 2;
+    if (S.pers === 'tranquila') {
+      set('sleepy', 6000, 'Zzz... 😴');
+    } else {
+      set(S.pers === 'carinhosa' ? 'sad' : 'bored', 5000,
+          S.pers === 'carinhosa' ? 'Me faz carinho? 🥰' : 'Tô entediada... 🥱');
+      S.humor = clamp(S.humor - 2);
+    }
+  }
+  if (s > 120 && stage < 3) {
+    stage = 3;
+    wig();
+  }
+}, 1000);
+
+const act = () => {
+  lastAct = Date.now();
+  stage = 0;
+};
+
+// Ações espontâneas quando ninguém interage
+setInterval(() => {
+  if (Date.now() - lastAct < 20000 || mood !== base()) return;
+  if (S.pers === 'curiosa') {
+    set('curious', 4000, '👀');
+  } else if (S.pers === 'brincalhona') {
+    wig();
+    set('happy', 2000, 'Hihi 😄');
+  }
+}, 25000);
+
+/* ============================================================
+   9) TOQUES (carinho, cócegas, bater, segurar)
+   ------------------------------------------------------------
+   Corrigido: pet() agora respeita o until corretamente.
+   ============================================================ */
+const ptrs = new Map();
+let sx = null, sy = null, moved = 0, petD = 0, rev = 0;
+let lastDx = 0, lastX = 0, lastY = 0;
+let pinch0 = 0, multi = 0, pinched = 0, tMulti = 0, hold;
+let taps = [], petGain = 0, permAsked = 0;
+
+function pet(m, t) {
+  if (mood !== m) {
+    set(m, 1300, t);
+  } else {
+    until = Date.now() + 1300;
+    clearTimeout(mt);
+    mt = setTimeout(() => set(base(), 0), 1300);
+  }
+}
+
+addEventListener('pointerdown', e => {
+  act();
+  if (gOn) return;
+  if (!permAsked) {
+    permAsked = 1;
+    askPerm().finally(startSensors);
+  }
+  if (e.target.closest('button, #estado, #panel')) return;
+
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (ptrs.size === 1) {
+    sx = lastX = e.clientX;
+    sy = lastY = e.clientY;
+    moved = 0; petD = 0; rev = 0;
+    multi = 0; pinched = 0; petGain = 0;
+
+    hold = setTimeout(() => {
+      if (!moved) {
+        const dx = (sx < innerWidth / 2 ? 1 : -1) * 40;
+        olhoE.style.transform = `translate(${dx}px, 0)`;
+        olhoD.style.transform = `translate(${dx}px, 0)`;
+        set('scared', 1800, 'Me solta! 😖');
+      }
+    }, 700);
+  } else {
+    clearTimeout(hold);
+    multi = 1;
+    tMulti = Date.now();
+    pinch0 = dist();
+  }
+});
+
+const dist = () => {
+  const p = [...ptrs.values()];
+  return Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
+};
+
+addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return;
+  act();
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+  if (ptrs.size === 2) {
+    const d = dist();
+    if (Math.abs(d - pinch0) > 40) {
+      pinched = 1;
+      set('scared', 1800, 'Ai! 😨');
+      pinch0 = d;
+    }
+    return;
+  }
+  if (sx == null || multi) return;
+
+  if (Math.hypot(e.clientX - sx, e.clientY - sy) > 12) {
+    moved = 1;
+    clearTimeout(hold);
+    look(e.clientX, e.clientY);
+  }
+  if (moved) {
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+    petD += Math.hypot(dx, dy);
+
+    if (dx * lastDx < 0 && Math.abs(dx) > 3) rev++;
+    if (Math.abs(dx) > 3) lastDx = dx;
+    lastX = e.clientX;
+    lastY = e.clientY;
+
+    if (rev >= 12) {
+      rev = 0;
+      wig();
+      pet('tickle', 'Hahaha, cócegas! 🤣');
+      if (!petGain) {
+        petGain = 1;
+        S.humor = clamp(S.humor + 4);
+      }
+    } else if (petD > 700 * pm('thr')) {
+      pet('carinho', 'Ronrom... 😍');
+      heart(e.clientX, e.clientY);
+    } else if (petD > 120 * thrR()) {
+      pet('happy', '');
+      heart(e.clientX, e.clientY);
+      if (!petGain) {
+        petGain = 1;
+        S.bond = (S.bond || 0) + 1;
+        S.humor = clamp(S.humor + 5 * pm('pet'));
+      }
+    }
+  }
+});
+
+function up(e) {
+  clearTimeout(hold);
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.delete(e.pointerId);
+
+  if (multi) {
+    if (ptrs.size === 0) {
+      if (!pinched && Date.now() - tMulti < 450) {
+        set('sleepy', 4000, 'Zzz... 😴');
+        S.energia = clamp(S.energia + 8);
+      }
+      multi = 0;
+      sx = null;
+      olhoE.style.transform = '';
+      olhoD.style.transform = '';
+    }
+    return;
+  }
+
+  if (sx == null) return;
+  const was = moved;
+  sx = null;
+  olhoE.style.transform = '';
+  olhoD.style.transform = '';
+  if (was) return;
+
+  const t = Date.now();
+  taps = taps.filter(x => t - x < 1100);
+  taps.push(t);
+  const n = taps.length;
+
+  if (n >= (S.pers === 'temperamental' ? 2 : 3)) {
+    set('angry', 2500, 'Para! 😠');
+    S.humor = clamp(S.humor - 3 * pm('irr'));
+    taps = [];
+    return;
+  }
+  if (n === 2) {
+    set('curious', 2200, '?');
+    taps = [];   // ✅ BUG CORRIGIDO: limpa aqui também
+    return;
+  }
+  set('happy', 1600, '');
+}
+
+addEventListener('pointerup', up);
+addEventListener('pointercancel', up);
+
+/* ============================================================
+   10) SENSORES (giroscópio + acelerômetro + bateria)
+   ============================================================ */
+async function askPerm() {
+  try {
+    for (const C of [window.DeviceMotionEvent, window.DeviceOrientationEvent]) {
+      if (C && C.requestPermission) await C.requestPermission();
+    }
+  } catch (_) {}
+}
+
+let cool = 0, shakes = 0, lastS = 0, gotO = 0, gotM = 0;
+let tiltX = 0.5;   // ✅ BUG CORRIGIDO: variável separada do gx dos jogos
+
+function startSensors() {
+  addEventListener('deviceorientation', onOri);
+  addEventListener('devicemotion', onMot);
+}
+
+let lastG = null, lastD = 0, sw = 0, swT = 0, swCool = 0;
+
+function swayCheck(g) {
+  if (g == null) return;
+  const t = Date.now();
+  if (t - swT > 5000) {
+    swT = t;
+    sw = 0;
+  }
+  if (lastG != null) {
+    const d = g - lastG;
+    if (Math.abs(d) > 1.5 && d * lastD < 0 && Math.abs(g) < 25) sw++;
+    if (Math.abs(d) > 1.5) lastD = d;
+  }
+  lastG = g;
+  if (sw >= 6 && t > swCool) {
+    swCool = t + 9000;
+    sw = 0;
+    set('sleepy', 5000, 'Zzz... 😴');
+    S.energia = clamp(S.energia + 6);
+  }
+}
+
+const onOri = e => {
+  if (e.beta == null) return;
+  gotO = 1;
+  act();
+  swayCheck(e.gamma);
+
+  const g = clamp(e.gamma || 0, -45, 45) / 45;
+  const b = clamp((e.beta || 0) - 55, -40, 40) / 40;
+
+  if (!['scared', 'dizzy'].includes(mood)) {
+    olhoE.style.transform = `translate(${g * 30}px, ${b * 18}px)`;
+    olhoD.style.transform = `translate(${g * 30}px, ${b * 18}px)`;
+  }
+
+  const t = Date.now();
+  if (t < cool) return;
+  if (e.beta < 15) {
+    cool = t + 5000;
+    set('sleepy', 3500, 'Aaaah... 🥱');
+    S.energia = clamp(S.energia + 3);
+  } else if (e.beta > 115) {
+    cool = t + 4000;
+    set('scared', 2500, 'Aaah, vou cair! 😨');
+  }
+};
+
+let free = 0, lastP = 0, peaks = [];
+
+const onMot = e => {
+  const ag = e.accelerationIncludingGravity;
+  if (ag && ag.x != null) {
+    gotM = 1;
+    const G = Math.hypot(ag.x, ag.y, ag.z);
+    const t = Date.now();
+    if (G < 2.5) {
+      if (++free >= 4) {
+        free = 0;
+        set('scared', 2500, 'Aaah, tô caindo! 😱');
+      }
+    } else {
+      free = 0;
+    }
+    if (G > 13 && G < 22 && t - lastP > 280) {
+      lastP = t;
+      peaks = peaks.filter(x => t - x < 4000);
+      peaks.push(t);
+      if (peaks.length >= 5) {
+        peaks = [];
+        wig();
+        set('curious', 3000, 'Vamos passear? 🚶');
+      }
+    }
+  }
+  const a = e.acceleration;
+  if (a && a.x != null) gotM = 1;
+  let m = a && a.x != null ? Math.hypot(a.x, a.y, a.z) : 0;
+
+  if (m > 11) {
+    const t = Date.now();
+    if (t - lastS > 120) {
+      lastS = t;
+      act();
+      if (++shakes >= 3) {
+        shakes = 0;
+        set('dizzy', 2500, 'Tô tonta! 😵');
+        setTimeout(() => {
+          if (S.humor >= 50) set('angry', 2200, 'Hmpf! 😠');
+          else set('cry', 3000, 'Buáá... 😢');
+        }, 2600);
+      }
+    }
+  }
+  setTimeout(() => shakes = 0, 1000);
+};
+
+/* ============================================================
+   11) BATERIA E REDE
+   ============================================================ */
+let batOK = 0;
+
+addEventListener('offline', () => set('sad', 4000, 'Sem internet... 📵'));
+addEventListener('online', () => set('happy', 2500, 'Voltou a internet! 📶'));
+
+if (navigator.getBattery) {
+  navigator.getBattery().then(b => {
+    batOK = 1;
+    let said = 0;
+    const u = () => {
+      if (b.level < 0.2 && !b.charging && !said) {
+        said = 1;
+        say('Estou ficando sem energia...');
+      }
+    };
+    u();
+    b.onlevelchange = u;
+  }).catch(() => {});
+}
+
+/* ============================================================
+   12) COMIDA (com preferências aprendidas)
+   ------------------------------------------------------------
+   Corrigido: prefs() agora sempre define S.dis corretamente.
+   ============================================================ */
+const FOODS = ['🍎', '🍓', '🥒', '🍌'];
+const rnd = a => a[Math.random() * a.length | 0];
+
+function prefs() {
+  const c = Object.keys(S.food || {}).filter(k => S.food[k] > 2);
+  if (!S.pref || Date.now() > S.pref.until) {
+    S.pref = c.length ? { f: rnd(c), until: Date.now() + 6048e5 } : null;
+  }
+  // ✅ BUG CORRIGIDO: garante que S.dis sempre existe e é diferente de S.pref
+  if (!S.dis || !S.pref || S.dis === S.pref.f) {
+    S.dis = rnd(FOODS.filter(x => !S.pref || x !== S.pref.f));
+  }
+}
+
+let lastTray = 0;
+
+function foodTray() {
+  panel('<h3>🍽️ Comida</h3>' +
+    FOODS.map(f => `<button data-f="${f}">${f}</button>`).join(''));
+}
+
+function eat(f) {
+  $('panel').classList.remove('on');
+  S.food = S.food || {};
+  S.food[f] = (S.food[f] || 0) + 1;
+  prefs();
+
+  const full = S.fome > 85;
+  S.fome = clamp(S.fome + (f === S.dis ? 10 : 25) * (full ? 0.4 : 1));
+
+  if (S.pref && f === S.pref.f) {
+    S.humor = clamp(S.humor + 8);
+    set('happy', 2500, 'Adoro! ' + f);
+    wig();
+  } else if (f === S.dis) {
+    S.humor = clamp(S.humor - 2);
+    set('sad', 2000, 'Eca... 🤢');
+  } else {
+    S.humor = clamp(S.humor + 2);
+    set('happy', 2000, 'Nham! ' + f);
+  }
+  save();
+}
+
+function foodTick() {
+  const n = Date.now();
+  if (S.fome < 40 && n - lastTray > 300000 && !gOn &&
+      !$('panel').classList.contains('on') && S.pers) {
+    lastTray = n;
+    say('Tô com fome... 🍽️');
+    foodTray();
+  }
+}
+
+/* ============================================================
+   13) DOENÇA
+   ------------------------------------------------------------
+   Corrigido: chance mais rara (antes era 35%/h).
+   ============================================================ */
+function sickTick() {
+  const n = Date.now();
+  if (S.sick && S.sick <= n) {
+    S.sick = 0;
+    say('Passou! 😊');
+    set('happy', 2500);
+  } else if (!S.sick && !gOn && Math.random() < 0.00008) {
+    S.sick = n + 4 * 60000;
+    say('Atchim! 🤧 🌡️');
+    set('sick', 0);
+  }
+  $('bXarope').style.display = S.sick > n ? '' : 'none';
+}
+
+function xarope() {
+  $('panel').classList.remove('on');
+  S.sick = 0;
+  S.saude = clamp(S.saude + 20);
+  set('sleepy', 3000, 'Glug... zzz 😴');
+  setTimeout(() => set('happy', 2500, 'Melhorei! 😊'), 3200);
+  $('bXarope').style.display = 'none';
+  save();
+}
+
+$('bXarope').onclick = xarope;
+
+/* ============================================================
+   14) MINI-JOGO — CESTA DE FRUTAS
+   ------------------------------------------------------------
+   Corrigido: gx agora é exclusivo do jogo (separado do tilt).
+   ============================================================ */
+let gOn = 0, gx = 0.5;
+
+function startGame() {
+  $('panel').classList.remove('on');
+  const c = document.createElement('canvas');
+  c.width = innerWidth;
+  c.height = innerHeight;
+  c.style.cssText = 'position:fixed;inset:0;z-index:8;background:#000d';
+  document.body.appendChild(c);
+
+  const x = c.getContext('2d');
+  let fr = [], score = 0, t0 = Date.now(), last = t0;
+  gOn = 1;
+  c.onpointermove = e => gx = e.clientX / innerWidth;
+
+  const iv = setInterval(() => {
+    const n = Date.now();
+    const dt = (n - last) / 1000;
+    last = n;
+    x.clearRect(0, 0, c.width, c.height);
+
+    if (Math.random() < 0.05) {
+      fr.push({ x: Math.random(), y: 0, e: Math.random() < 0.06 ? '🍰' : rnd(['🍎', '🍓', '🍌']) });
+    }
+
+    x.font = '34px serif';
+    x.textAlign = 'center';
+
+    fr.forEach(f => {
+      f.y += dt * (f.e === '🍰' ? 330 : 220);
+      x.fillText(f.e, f.x * c.width, f.y);
+    });
+
+    const by = c.height - 90;
+    const bx = gx * c.width;
+    x.fillText('🧺', bx, by + 20);
+
+    fr = fr.filter(f => {
+      if (f.y > by - 10 && f.y < by + 30 && Math.abs(f.x * c.width - bx) < 45) {
+        score += f.e === '🍰' ? 5 : 1;
+        if (f.e === '🍰') {
+          say('Docinho! 🍰✨'
+</script>
+
+</body>
+  </html>
